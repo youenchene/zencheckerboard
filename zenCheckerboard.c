@@ -613,6 +613,136 @@ static void drawStripes(MainCtx ctx)
 }
 
 
+static void drawLinesCgx(MainCtx ctx)
+{
+	int width,halfWidth,height;
+	unsigned char* CgxBaseAddress=0;
+	ULONG CgxBytesPerRow=0;
+
+	LockBitMapTags(ctx->screen->RastPort.BitMap,
+		LBMI_BASEADDRESS,(ULONG)&CgxBaseAddress,
+		LBMI_BYTESPERROW,(ULONG)&CgxBytesPerRow,
+		TAG_DONE);
+
+	memset(CgxBaseAddress,0,ctx->height*CgxBytesPerRow);
+
+	width=ctx->width;
+	halfWidth=width/2;
+	height=ctx->height;
+	
+	if(ctx->depth==8)
+	{
+		unsigned char *pbm;
+		int y;
+		pbm=CgxBaseAddress;
+		for(y=0;y<height;y++)
+		{
+			int x;
+			*pbm++=0x01; // color 1
+			for(x=0;x<halfWidth;x++)
+			{
+				*pbm=0x01; // color 1
+				pbm+=2;
+			}
+			pbm--;
+		}
+		pbm=CgxBaseAddress;
+		memset(pbm,0x01,width); // top
+		memset(pbm+width*(height-1),0x01,width); // bottom
+	}
+	else if(ctx->depth==16)
+	{
+		USHORT *pbm;
+		int y;
+		pbm=(USHORT*)CgxBaseAddress;
+		for(y=0;y<height;y++)
+		{
+			int x;
+			*pbm++=0xffff; // color 1
+			for(x=0;x<halfWidth;x++)
+			{
+				*pbm=0xffff; // color 1
+				pbm+=2;
+			}
+			pbm--;
+		}
+		pbm=(USHORT*)CgxBaseAddress;
+		memset(pbm,0xff,width*sizeof(USHORT)); // top
+		memset((void*)pbm+width*sizeof(USHORT)*(height-1),0xff,width*sizeof(USHORT)); // bottom
+	}
+	else
+	{
+		ULONG *pbm;
+		int y;
+		pbm=(ULONG*)CgxBaseAddress;
+		for(y=0;y<height;y++)
+		{
+			int x;
+			*pbm++=0xffffffff; // color 1
+			for(x=0;x<halfWidth;x++)
+			{
+				*pbm=0xffffffff; // color 1
+				pbm+=2;
+			}
+			pbm--;
+		}
+		pbm=(ULONG*)CgxBaseAddress;
+		memset(pbm,0xff,width*sizeof(ULONG)); // top
+		memset((void*)pbm+width*sizeof(ULONG)*(height-1),0xff,width*sizeof(ULONG)); // bottom
+	}
+	UnLockBitMap(ctx->screen->RastPort.BitMap);
+}
+
+
+static void drawLinesAga(MainCtx ctx)
+{
+int y;
+	int bytesPerRow,height;
+	unsigned char *pbm;
+
+	bytesPerRow=ctx->width/8;
+	height=ctx->height;
+	
+	pbm=ctx->scrBm->Planes[0];
+	for(y=0;y<height;y++)
+	{
+		int x;
+		if(y % 2 == 0) {
+			*pbm++=0xff|0x80;
+			for(x=1;x<(bytesPerRow-1);x++)
+			{
+					*pbm++=0xff;
+			}
+			*pbm++=0xff|0x01;
+		} else {
+			*pbm++=0x00|0x80;
+			for(x=1;x<(bytesPerRow-1);x++)
+			{
+					*pbm++=0x00;
+			}
+			*pbm++=0x00|0x01;
+		}
+	}
+	// surround screen top and bottom
+	pbm=ctx->scrBm->Planes[0];
+	memset(pbm,0xff,bytesPerRow); // top
+	memset(pbm+bytesPerRow*(height-1),0xff,bytesPerRow); // bottom
+}
+
+static void drawLines(MainCtx ctx)
+{
+	if(ctx->screenIsCgx)
+	{
+		drawLinesCgx(ctx);
+		return;
+	}
+	drawLinesAga(ctx);
+}
+
+
+
+
+
 #define CIAAPRA		0xbfe001
 #define 	CIAAPRAFIR0	0x40
 static int testMouseL(void)
@@ -634,7 +764,7 @@ int main(int argc,char*argv[])
 	MainCtx ctx=&glbCtx;
 	int whichDraw=0;
 
-	printf("zenCherckerBoard v%s\n",VERSION);
+	printf("zenCheckerBoard v%s\n",VERSION);
 
 	openLibs(ctx);
 
@@ -665,14 +795,22 @@ int main(int argc,char*argv[])
 	drawCheck(ctx);
 
 	// main loop : just wait
+	whichDraw=0;
+	
 	while(!testMouseL())
 	{
 		// nothing
 		if(testMouseR())
 		{
-			whichDraw^=1;
+			whichDraw--;
+			if (whichDraw<0) {
+				whichDraw=2;
+			}
 			switch(whichDraw)
 			{
+				case 2:
+					drawLines(ctx);
+					break;
 				case 1:
 					drawStripes(ctx);
 					break;

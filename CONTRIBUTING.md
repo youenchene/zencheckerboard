@@ -1,1 +1,5 @@
-docker run -it -v  /Users/youen/Code/amiga/zenCheckerboard/src:/opt/src  kareandersen/amiga-gcc:latest sh
+`docker run -it -v  /Users/name/Code/amiga/zenCheckerboard_src:/opt/src  kareandersen/amiga-gcc:latest sh`
+
+then 
+
+`m68k-amigaos-gcc zenCheckerboard.c -o zenCheckerboard`
