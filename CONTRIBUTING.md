@@ -1,0 +1,1 @@
+docker run -it -v  /Users/youen/Code/amiga/zenCheckerboard/src:/opt/src  kareandersen/amiga-gcc:latest sh
